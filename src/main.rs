@@ -166,7 +166,8 @@ struct SerialApp {
     received_data: Vec<u8>,
 
     register: u8,
-    value: u8
+    value: u8,
+    frequency: String
 }
 
 impl SerialApp {
@@ -215,6 +216,7 @@ impl SerialApp {
             received_data: Vec::new(),
             value: 0,
             register: 0,
+            frequency: 0.to_string(),
         }
     }
 
@@ -243,53 +245,43 @@ impl eframe::App for SerialApp {
         }
 
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
+            ui.vertical(|ui| {
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Base Frequency: ");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.frequency).desired_width(60.0)
+                        );
+                        ui.label("MHz");
+                    });
+                });
+            });
 
+            if ui.button("Write Register").clicked() {
+                let write_register_frame = WriteRegisterFrame {
+                    address: self.register,
+                    value: self.value,
+                };
+
+                let packet = Packet {
+                    command_id: CommandID::WriteRegister,
+                    payload: postcard::to_allocvec(&write_register_frame).expect("Failed to serialize packet"),
+                };
+
+                self.send_message(&packet).expect("Failed to send message");
+            }
+
+            // Display received data
+            if !self.received_data.is_empty() {
+                ui.label(format!(
+                    "Received data: {:?}",
+                    String::from_utf8_lossy(&self.received_data)
+                ));
+            }
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.label("Register: ");
-                    ui.add(
-                        egui::DragValue::new(&mut self.register)
-                            .speed(1.0)
-                            .clamp_existing_to_range(true)
-                            .range(0..=255)
-                    );
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("Value: ");
-                    ui.add(
-                        egui::DragValue::new(&mut self.value)
-                            .speed(1.0)
-                            .clamp_existing_to_range(true)
-                            .range(0..=255)
-                    );
-                });
-
-                if ui.button("Write Register").clicked() {
-                    let write_register_frame = WriteRegisterFrame {
-                        address: self.register,
-                        value: self.value,
-                    };
-
-                    let packet = Packet {
-                        command_id: CommandID::WriteRegister,
-                        payload: postcard::to_allocvec(&write_register_frame).expect("Failed to serialize packet"),
-                    };
-
-                    self.send_message(&packet).expect("Failed to send message");
-                }
-
-                // Display received data
-                if !self.received_data.is_empty() {
-                    ui.label(format!(
-                        "Received data: {:?}",
-                        String::from_utf8_lossy(&self.received_data)
-                    ));
-                }
-            });
+            
         });
 
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
