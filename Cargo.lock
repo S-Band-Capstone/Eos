@@ -6,7 +6,9 @@ version = 3
 name = "Eos"
 version = "0.1.0"
 dependencies = [
+ "convert-base",
  "eframe",
+ "num_base",
  "postcard",
  "re_ui",
  "serde",
@@ -803,6 +805,12 @@ dependencies = [
  "libc",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "convert-base"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e56a404f2112d00ba80a516b60ca3744ef6bd776baa14126eb7d7c11b42cac8a"
 
 [[package]]
 name = "convert_case"
@@ -2534,6 +2542,12 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "num_base"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc1865a6c7b729814cadd3c8c25d9eda20203c5c1efda7b68e859b2993ee15f3"
 
 [[package]]
 name = "num_enum"

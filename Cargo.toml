@@ -10,3 +10,5 @@ tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 postcard = { version = "1.0", features = ["alloc"] }
 re_ui = "0.20.0"
+convert-base = "1.1.2"
+num_base = "0.4.2"
