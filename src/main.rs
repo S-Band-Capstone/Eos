@@ -273,7 +273,7 @@ impl SerialApp {
             value: 0,
             register: 0,
             input_frequency: "2464.0".to_string(),
-            binary_frequency_string: "010111101100010011101100".to_string(),
+            binary_frequency_string: format!("{}{}{}", format!("{:08b}", REGISTER_VALUE.FREQ2).to_string(), format!("{:08b}", REGISTER_VALUE.FREQ1).to_string(), format!("{:08b}", REGISTER_VALUE.FREQ0).to_string()),
             binary_frequency: 0b010111101100010011101100,
             rounded_frequency_string: "2464.000000".to_string(),
             rounded_frequency: 2464.000000,
@@ -327,10 +327,7 @@ impl eframe::App for SerialApp {
                         self.binary_frequency_string = format!("{:b}", intermediate_input_frequency_u64);
                         // println!("binary frequency after doing it the easy way: {:?}", self.binary_frequency_string);
                         // println!("binary representation of {} is {:?}!", intermediate_input_frequency, self.binary_frequency_string);
-                        
-    
-    
-    
+
                         // println!("binary {:?}", self.binary_frequency_string);
     
                         let intermediate_binary_frequency = u64::from_str_radix(&self.binary_frequency_string, 2).expect("Invalid binary string").to_string();
@@ -340,7 +337,7 @@ impl eframe::App for SerialApp {
                     }
 
                     ui.add(
-                        egui::TextEdit::singleline(&mut self.rounded_frequency_string.clone()).desired_width(80.0)
+                        egui::TextEdit::singleline(&mut self.binary_frequency_string.clone()).desired_width(80.0)
                     );
 
                 });
