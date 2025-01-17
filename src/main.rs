@@ -47,9 +47,7 @@ struct SerialApp {
     value: u8,
     input_frequency: String,
     binary_frequency_string: String,
-    binary_frequency: u64,
     rounded_frequency_string: String,
-    rounded_frequency: f64
 }
 
 const TEXT_EDIT: Vec2 = Vec2 {
@@ -273,9 +271,7 @@ impl SerialApp {
             register: 0,
             input_frequency: "2464.0".to_string(),
             binary_frequency_string: format!("{}{}{}", format!("{:08b}", REGISTER_VALUE.freq2).to_string(), format!("{:08b}", REGISTER_VALUE.freq1).to_string(), format!("{:08b}", REGISTER_VALUE.freq0).to_string()),
-            binary_frequency: 0b010111101100010011101100,
             rounded_frequency_string: "2464.000000".to_string(),
-            rounded_frequency: 2464.000000,
         }
     }
 
@@ -294,6 +290,18 @@ impl SerialApp {
         }
         Ok(())
     }
+
+    fn base_frequency_calculation(&mut self) {
+        let mut intermediate_input_frequency = self.input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR; 
+        
+        intermediate_input_frequency = f64::floor(intermediate_input_frequency);
+        let intermediate_input_frequency_u64: u64 = intermediate_input_frequency as u64;
+    
+        self.binary_frequency_string = format!("{:b}", intermediate_input_frequency_u64);
+    
+        let intermediate_binary_frequency = u64::from_str_radix(&self.binary_frequency_string, 2).expect("Invalid binary string").to_string();
+        self.rounded_frequency_string = (intermediate_binary_frequency.parse::<f64>().unwrap() / FREQUENCY_FACTOR).to_string();
+    }
 }
 
 impl eframe::App for SerialApp {
@@ -308,16 +316,7 @@ impl eframe::App for SerialApp {
                 ui.label("Base Frequency");
                 ui.vertical(|ui| {
                     if ui.add(egui::TextEdit::singleline(&mut self.input_frequency).min_size(TEXT_EDIT)).changed() {
-                        let mut intermediate_input_frequency = self.input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR; 
-    
-    
-                        intermediate_input_frequency = f64::floor(intermediate_input_frequency);
-                        let intermediate_input_frequency_u64: u64 = intermediate_input_frequency as u64;
-    
-                        self.binary_frequency_string = format!("{:b}", intermediate_input_frequency_u64);
-    
-                        let intermediate_binary_frequency = u64::from_str_radix(&self.binary_frequency_string, 2).expect("Invalid binary string").to_string();
-                        self.rounded_frequency_string = (intermediate_binary_frequency.parse::<f64>().unwrap() / FREQUENCY_FACTOR).to_string();
+                        self.base_frequency_calculation();
                     }
 
                     ui.add(
