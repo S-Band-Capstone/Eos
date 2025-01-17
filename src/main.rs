@@ -308,35 +308,20 @@ impl eframe::App for SerialApp {
                 ui.label("Base Frequency");
                 ui.vertical(|ui| {
                     if ui.add(egui::TextEdit::singleline(&mut self.input_frequency).min_size(TEXT_EDIT)).changed() {
-                        // println!("---------------------------------------------------------------------------");
-                        // println!("original decimal: {:?}", self.input_frequency);
-                        // match self.dec_2_bin(self.input_frequency * (2f64.powf(16.0)/26.0)) {
-                        //     Ok(value) => println!("Binary value: {}", value),
-                        //     Err(e) => println!("Failed to parse value: {}", e),
-                        // }
                         let mut intermediate_input_frequency = self.input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR; 
-                        // println!("intermediate input frequency: {:?}", intermediate_input_frequency);
     
     
                         intermediate_input_frequency = f64::floor(intermediate_input_frequency);
                         let intermediate_input_frequency_u64: u64 = intermediate_input_frequency as u64;
-                        // println!("intermediate input frequency after floor: {:?}", intermediate_input_frequency.clone());
-    
     
                         self.binary_frequency_string = format!("{:b}", intermediate_input_frequency_u64);
-                        // println!("binary frequency after doing it the easy way: {:?}", self.binary_frequency_string);
-                        // println!("binary representation of {} is {:?}!", intermediate_input_frequency, self.binary_frequency_string);
-
-                        // println!("binary {:?}", self.binary_frequency_string);
     
                         let intermediate_binary_frequency = u64::from_str_radix(&self.binary_frequency_string, 2).expect("Invalid binary string").to_string();
                         self.rounded_frequency_string = (intermediate_binary_frequency.parse::<f64>().unwrap() / FREQUENCY_FACTOR).to_string();
-                        // println!("new rounded frequency {:?}", self.rounded_frequency_string);
-                        // println!("rounded representation of {} is {:?}!", self.input_frequency, self.rounded_frequency_string);
                     }
 
                     ui.add(
-                        egui::TextEdit::singleline(&mut self.binary_frequency_string.clone()).desired_width(80.0)
+                        egui::TextEdit::singleline(&mut self.rounded_frequency_string.clone()).desired_width(80.0)
                     );
 
                 });
