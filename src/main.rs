@@ -10,6 +10,8 @@ use std::io::Read;
 use std::time::Duration;
 
 const FREQUENCY_FACTOR: f64 = (2_u32.pow(16)as f64) / 26.0;
+const BASE_FREQUENCY_MIN: f64 = 2400.0;
+const BASE_FREQUENCY_MAX: f64 = 2843.5;
 
 // Commands
 #[repr(u8)]
@@ -48,6 +50,7 @@ struct SerialApp {
     input_frequency: String,
     binary_frequency_string: String,
     rounded_frequency_string: String,
+    invalid_frequency_popup: bool,
 }
 
 const TEXT_EDIT: Vec2 = Vec2 {
@@ -272,6 +275,7 @@ impl SerialApp {
             input_frequency: "2464.0".to_string(),
             binary_frequency_string: format!("{}{}{}", format!("{:08b}", REGISTER_VALUE.freq2).to_string(), format!("{:08b}", REGISTER_VALUE.freq1).to_string(), format!("{:08b}", REGISTER_VALUE.freq0).to_string()),
             rounded_frequency_string: "2464.000000".to_string(),
+            invalid_frequency_popup: false,
         }
     }
 
@@ -291,14 +295,10 @@ impl SerialApp {
         Ok(())
     }
 
-    fn base_frequency_calculation(&mut self) {
-        let mut intermediate_input_frequency = self.input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR; 
-        
-        intermediate_input_frequency = f64::floor(intermediate_input_frequency);
+    fn update_base_frequency_from_parameter(&mut self) {
+        let intermediate_input_frequency = f64::floor(self.input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR); 
         let intermediate_input_frequency_u64: u64 = intermediate_input_frequency as u64;
-    
         self.binary_frequency_string = format!("{:b}", intermediate_input_frequency_u64);
-    
         let intermediate_binary_frequency = u64::from_str_radix(&self.binary_frequency_string, 2).expect("Invalid binary string").to_string();
         self.rounded_frequency_string = (intermediate_binary_frequency.parse::<f64>().unwrap() / FREQUENCY_FACTOR).to_string();
     }
@@ -315,14 +315,35 @@ impl eframe::App for SerialApp {
             egui::Grid::new("freq").show(ui, |ui| {
                 ui.label("Base Frequency");
                 ui.vertical(|ui| {
-                    if ui.add(egui::TextEdit::singleline(&mut self.input_frequency).min_size(TEXT_EDIT)).changed() {
-                        self.base_frequency_calculation();
+                    let frequency_text_box = ui.add(egui::TextEdit::singleline(&mut self.input_frequency).min_size(TEXT_EDIT));
+                    if frequency_text_box.changed() {
+                        self.update_base_frequency_from_parameter();
                     }
-
+                    if frequency_text_box.lost_focus() {
+                        if let Ok(value) = self.input_frequency.trim().parse::<f64>() {
+                            // Check if the value is out of bounds
+                            if value < 2400.0 || value > 2483.5 {
+                                self.invalid_frequency_popup = true; // Trigger the popup
+                            }
+                        } else {
+                            // Show popup for invalid input
+                            self.invalid_frequency_popup = true;
+                        }
+                    }
+                    if self.invalid_frequency_popup {
+                        egui::Window::new("Invalid Input")
+                            .collapsible(false)
+                            .resizable(false)
+                            .show(ctx, |ui| {
+                                ui.label("The base frequency must be between 2400 and 2483.5!");
+                                if ui.button("OK").clicked() {
+                                    self.invalid_frequency_popup = false; // Close the popup
+                                }
+                            });
+                    }
                     ui.add(
                         egui::TextEdit::singleline(&mut self.rounded_frequency_string.clone()).desired_width(80.0)
                     );
-
                 });
                 ui.label("MHz");
             });
