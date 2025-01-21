@@ -39,6 +39,7 @@ struct Packet {
     payload: Vec<u8>,
 }
 
+// this struct is the application struct, declares variables that the application itself can see
 struct SerialApp {
     runtime: Runtime,
     port: Option<Box<dyn SerialPort>>,
@@ -58,6 +59,7 @@ const TEXT_EDIT: Vec2 = Vec2 {
     y: 0.0
 };
 
+// Name of all register addresses and their length (16 bits)
 struct RegisterAddress {
     iocfg2: u16,
     iocfg1: u16,
@@ -100,6 +102,7 @@ struct RegisterAddress {
     pa_table0: u16
 }
 
+// creation of the RegisterAddress Struct, register names are given their address values
 const REGISTER_ADDRESS: RegisterAddress = RegisterAddress {
     iocfg2: 0xDF2F,
     iocfg1: 0xDF30,
@@ -142,6 +145,7 @@ const REGISTER_ADDRESS: RegisterAddress = RegisterAddress {
     pa_table0: 0xDF2E  
 };
 
+// Register value struct declaration (this is the struct of the actual register values)
 struct Registers {
     iocfg2: u8,
     iocfg1: u8,
@@ -184,6 +188,8 @@ struct Registers {
     pa_table0: u8
 }
 
+// Register value struct is instantiated with baseline values
+// the values chosen are the ones that SmartRF Studio 7 shows when you reset the registers on the chip
 const REGISTER_VALUE: Registers = Registers {
     iocfg2: 0x00,
     iocfg1: 0x00,
@@ -226,6 +232,7 @@ const REGISTER_VALUE: Registers = Registers {
     pa_table0: 0x00
 };
 
+// Implementation of the SerialApp struct further up, declares startup things, such as port selection & initial variable values
 impl SerialApp {
     fn new(cc: &eframe::CreationContext) -> Self {
         re_ui::apply_style_and_install_loaders(&cc.egui_ctx);
@@ -304,6 +311,7 @@ impl SerialApp {
     }
 }
 
+// implementation of the UI for SerialApp
 impl eframe::App for SerialApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Check for received data
@@ -384,6 +392,7 @@ impl eframe::App for SerialApp {
     }
 }
 
+// literally just start the app
 fn main() -> Result<(), eframe::Error> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default(),
