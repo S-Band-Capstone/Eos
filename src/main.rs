@@ -50,11 +50,12 @@ struct SerialApp {
     register_value: RegisterValue,
     register_address:RegisterAddress,
     input_frequency: String,
+    input_channel_number: u8,
     invalid_frequency_popup: bool,
 }
 
 const TEXT_EDIT: Vec2 = Vec2 {
-    x: 80.0,
+    x: 68.0,
     y: 0.0
 };
 
@@ -277,6 +278,7 @@ impl SerialApp {
                 pa_table0: 0xDF2E 
             },
             input_frequency: "2464.0".to_string(),
+            input_channel_number: 0,
             invalid_frequency_popup: false,
         }
     }
@@ -304,6 +306,10 @@ impl SerialApp {
         self.register_value.freq1 = ((intermediate_input_frequency_u64 >> 8) & 0xFF) as u8;
         self.register_value.freq2 = ((intermediate_input_frequency_u64 >> 16) & 0xFF) as u8;
         u64::from_str_radix(format!("{}{}{}", format!("{:08b}", self.register_value.freq2).to_string(), format!("{:08b}", self.register_value.freq1).to_string(), format!("{:08b}", self.register_value.freq0)).as_str(), 2).expect("Invalid binary string").to_string();
+    }
+
+    fn update_channel_number_from_parameter(&mut self) {
+        self.register_value.channr = self.input_channel_number
     }
 
     fn get_concatenated_freq(&self) -> String {
@@ -352,13 +358,27 @@ impl eframe::App for SerialApp {
                             });
                     }
                     ui.add(
-                        egui::TextEdit::singleline(&mut self.get_concatenated_freq()).desired_width(80.0)
+                        egui::TextEdit::singleline(&mut self.get_concatenated_freq()).clip_text(true).desired_width(68.0)
                     );
                 });
                 ui.label("MHz");
             });
             ui.horizontal(|ui| {
 
+            });
+
+            egui::Grid::new("channel").show(ui, |ui| {
+                ui.label("Channel Number");
+                ui.horizontal(|ui| {
+                    let frequency_text_box = ui.add(egui::DragValue::new(&mut self.input_channel_number)
+                        .speed(1.0)
+                        .clamp_existing_to_range(true)
+                        .range(0..=255));
+                    if frequency_text_box.changed() {
+                        self.update_channel_number_from_parameter();
+                    }
+                    ui.label(self.register_value.channr.to_string());
+                });
             });
 
             if ui.button("Write Register").clicked() {
