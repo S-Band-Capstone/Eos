@@ -45,12 +45,11 @@ struct SerialApp {
     port: Option<Box<dyn SerialPort>>,
     rx: mpsc::Receiver<u8>,
     received_data: Vec<u8>,
-
     register: u8,
     value: u8,
+    register_value: RegisterValue,
+    register_address:RegisterAddress,
     input_frequency: String,
-    binary_frequency_string: String,
-    rounded_frequency_string: String,
     invalid_frequency_popup: bool,
 }
 
@@ -102,51 +101,8 @@ struct RegisterAddress {
     pa_table0: u16
 }
 
-// creation of the RegisterAddress Struct, register names are given their address values
-const REGISTER_ADDRESS: RegisterAddress = RegisterAddress {
-    iocfg2: 0xDF2F,
-    iocfg1: 0xDF30,
-    iocfg0: 0xDF31,
-    sync1: 0xDF00,
-    sync0: 0xDF01,
-    pktlen: 0xDF02,
-    pktctrl1: 0xDF03,
-    pktctrl0: 0xDF04,
-    addr: 0xDF05,
-    channr: 0xDF06,
-    fsctrl1: 0xDF07,
-    fsctrl0: 0xDF08,
-    freq2: 0xDF09,
-    freq1: 0xDF0A,
-    freq0: 0xDF0B,
-    mdmcfg4: 0xDF0C,
-    mdmcfg3: 0xDF0D,
-    mdmcfg2: 0xDF0E,
-    mdmcfg1: 0xDF0F,
-    mdmcfg0: 0xDF10,
-    deviatn: 0xDF11,
-    mcsm2: 0xDF12,
-    mcsm1: 0xDF13,
-    mcsm0: 0xDF14,
-    foccfg: 0xDF15,
-    bscfg: 0xDF16,
-    agcctrl2: 0xDF17,
-    agcctrl1: 0xDF18,
-    agcctrl0: 0xDF19,
-    frend1: 0xDF1A,
-    frend0: 0xDF1B,
-    fscal3: 0xDF1C,
-    fscal2: 0xDF1D,
-    fscal1: 0xDF1E,
-    fscal0: 0xDF1F,
-    test2: 0xDF23,
-    test1: 0xDF24,
-    test0: 0xDF25,
-    pa_table0: 0xDF2E  
-};
-
 // Register value struct declaration (this is the struct of the actual register values)
-struct Registers {
+struct RegisterValue {
     iocfg2: u8,
     iocfg1: u8,
     iocfg0: u8,
@@ -190,47 +146,6 @@ struct Registers {
 
 // Register value struct is instantiated with baseline values
 // the values chosen are the ones that SmartRF Studio 7 shows when you reset the registers on the chip
-const REGISTER_VALUE: Registers = Registers {
-    iocfg2: 0x00,
-    iocfg1: 0x00,
-    iocfg0: 0x00,
-    sync1: 0xD3,
-    sync0: 0x91,
-    pktlen: 0xFF,
-    pktctrl1: 0x04,
-    pktctrl0: 0x45,
-    addr: 0x00,
-    channr: 0x00,
-    fsctrl1: 0x0F,
-    fsctrl0: 0x00,
-    freq2: 0x5E,
-    freq1: 0xC4,
-    freq0: 0xEC,
-    mdmcfg4: 0x8C,
-    mdmcfg3: 0x22,
-    mdmcfg2: 0x02,
-    mdmcfg1: 0x22,
-    mdmcfg0: 0xF8,
-    deviatn: 0x47,
-    mcsm2: 0x07,
-    mcsm1: 0x30,
-    mcsm0: 0x04,
-    foccfg: 0x76,
-    bscfg: 0x6C,
-    agcctrl2: 0x03,
-    agcctrl1: 0x40,
-    agcctrl0: 0x91,
-    frend1: 0x56,
-    frend0: 0x10,
-    fscal3: 0xA9,
-    fscal2: 0x0A,
-    fscal1: 0x20,
-    fscal0: 0x0D,
-    test2: 0x88,
-    test1: 0x11,
-    test0: 0x0B,
-    pa_table0: 0x00
-};
 
 // Implementation of the SerialApp struct further up, declares startup things, such as port selection & initial variable values
 impl SerialApp {
@@ -279,9 +194,89 @@ impl SerialApp {
             received_data: Vec::new(),
             value: 0,
             register: 0,
+            register_value: RegisterValue{
+                iocfg2: 0x00,
+                iocfg1: 0x00,
+                iocfg0: 0x00,
+                sync1: 0xD3,
+                sync0: 0x91,
+                pktlen: 0xFF,
+                pktctrl1: 0x04,
+                pktctrl0: 0x45,
+                addr: 0x00,
+                channr: 0x00,
+                fsctrl1: 0x0F,
+                fsctrl0: 0x00,
+                freq2: 0x5E,
+                freq1: 0xC4,
+                freq0: 0xEC,
+                mdmcfg4: 0x8C,
+                mdmcfg3: 0x22,
+                mdmcfg2: 0x02,
+                mdmcfg1: 0x22,
+                mdmcfg0: 0xF8,
+                deviatn: 0x47,
+                mcsm2: 0x07,
+                mcsm1: 0x30,
+                mcsm0: 0x04,
+                foccfg: 0x76,
+                bscfg: 0x6C,
+                agcctrl2: 0x03,
+                agcctrl1: 0x40,
+                agcctrl0: 0x91,
+                frend1: 0x56,
+                frend0: 0x10,
+                fscal3: 0xA9,
+                fscal2: 0x0A,
+                fscal1: 0x20,
+                fscal0: 0x0D,
+                test2: 0x88,
+                test1: 0x11,
+                test0: 0x0B,
+                pa_table0: 0x00
+            },
+            register_address: RegisterAddress{
+                iocfg2: 0xDF2F,
+                iocfg1: 0xDF30,
+                iocfg0: 0xDF31,
+                sync1: 0xDF00,
+                sync0: 0xDF01,
+                pktlen: 0xDF02,
+                pktctrl1: 0xDF03,
+                pktctrl0: 0xDF04,
+                addr: 0xDF05,
+                channr: 0xDF06,
+                fsctrl1: 0xDF07,
+                fsctrl0: 0xDF08,
+                freq2: 0xDF09,
+                freq1: 0xDF0A,
+                freq0: 0xDF0B,
+                mdmcfg4: 0xDF0C,
+                mdmcfg3: 0xDF0D,
+                mdmcfg2: 0xDF0E,
+                mdmcfg1: 0xDF0F,
+                mdmcfg0: 0xDF10,
+                deviatn: 0xDF11,
+                mcsm2: 0xDF12,
+                mcsm1: 0xDF13,
+                mcsm0: 0xDF14,
+                foccfg: 0xDF15,
+                bscfg: 0xDF16,
+                agcctrl2: 0xDF17,
+                agcctrl1: 0xDF18,
+                agcctrl0: 0xDF19,
+                frend1: 0xDF1A,
+                frend0: 0xDF1B,
+                fscal3: 0xDF1C,
+                fscal2: 0xDF1D,
+                fscal1: 0xDF1E,
+                fscal0: 0xDF1F,
+                test2: 0xDF23,
+                test1: 0xDF24,
+                test0: 0xDF25,
+                pa_table0: 0xDF2E 
+            },
             input_frequency: "2464.0".to_string(),
-            binary_frequency_string: format!("{}{}{}", format!("{:08b}", REGISTER_VALUE.freq2).to_string(), format!("{:08b}", REGISTER_VALUE.freq1).to_string(), format!("{:08b}", REGISTER_VALUE.freq0).to_string()),
-            rounded_frequency_string: "2464.000000".to_string(),
             invalid_frequency_popup: false,
         }
     }
@@ -305,9 +300,16 @@ impl SerialApp {
     fn update_base_frequency_from_parameter(&mut self) {
         let intermediate_input_frequency = f64::floor(self.input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR); 
         let intermediate_input_frequency_u64: u64 = intermediate_input_frequency as u64;
-        self.binary_frequency_string = format!("{:b}", intermediate_input_frequency_u64);
-        let intermediate_binary_frequency = u64::from_str_radix(&self.binary_frequency_string, 2).expect("Invalid binary string").to_string();
-        self.rounded_frequency_string = (intermediate_binary_frequency.parse::<f64>().unwrap() / FREQUENCY_FACTOR).to_string();
+        self.register_value.freq0 = (intermediate_input_frequency_u64 & 0xFF) as u8;
+        self.register_value.freq1 = ((intermediate_input_frequency_u64 >> 8) & 0xFF) as u8;
+        self.register_value.freq2 = ((intermediate_input_frequency_u64 >> 16) & 0xFF) as u8;
+        u64::from_str_radix(format!("{}{}{}", format!("{:08b}", self.register_value.freq2).to_string(), format!("{:08b}", self.register_value.freq1).to_string(), format!("{:08b}", self.register_value.freq0)).as_str(), 2).expect("Invalid binary string").to_string();
+    }
+
+    fn get_concatenated_freq(&self) -> String {
+        let intermediate_decimal_frequency = ((self.register_value.freq2 as u32) << 16) | ((self.register_value.freq1 as u32) << 8) | self.register_value.freq0 as u32;
+        let result = intermediate_decimal_frequency as f64 / FREQUENCY_FACTOR;
+        format!("{}", result)
     }
 }
 
@@ -350,7 +352,7 @@ impl eframe::App for SerialApp {
                             });
                     }
                     ui.add(
-                        egui::TextEdit::singleline(&mut self.rounded_frequency_string.clone()).desired_width(80.0)
+                        egui::TextEdit::singleline(&mut self.get_concatenated_freq()).desired_width(80.0)
                     );
                 });
                 ui.label("MHz");
