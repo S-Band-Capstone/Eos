@@ -49,8 +49,8 @@ struct SerialApp {
     value: u8,
     register_value: RegisterValue,
     register_address:RegisterAddress,
-    input_frequency: String,
-    input_channel_number: u8,
+    user_input_frequency: String,
+    user_input_channel_number: u8,
     invalid_frequency_popup: bool,
 }
 
@@ -277,8 +277,8 @@ impl SerialApp {
                 test0: 0xDF25,
                 pa_table0: 0xDF2E 
             },
-            input_frequency: "2464.0".to_string(),
-            input_channel_number: 0,
+            user_input_frequency: "2464.0".to_string(),
+            user_input_channel_number: 0,
             invalid_frequency_popup: false,
         }
     }
@@ -300,7 +300,7 @@ impl SerialApp {
     }
 
     fn update_base_frequency_from_parameter(&mut self) {
-        let intermediate_input_frequency = f64::floor(self.input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR); 
+        let intermediate_input_frequency = f64::floor(self.user_input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR); 
         let intermediate_input_frequency_u64: u64 = intermediate_input_frequency as u64;
         self.register_value.freq0 = (intermediate_input_frequency_u64 & 0xFF) as u8;
         self.register_value.freq1 = ((intermediate_input_frequency_u64 >> 8) & 0xFF) as u8;
@@ -309,7 +309,7 @@ impl SerialApp {
     }
 
     fn update_channel_number_from_parameter(&mut self) {
-        self.register_value.channr = self.input_channel_number
+        self.register_value.channr = self.user_input_channel_number
     }
 
     fn get_concatenated_freq(&self) -> String {
@@ -331,12 +331,12 @@ impl eframe::App for SerialApp {
             egui::Grid::new("freq").show(ui, |ui| {
                 ui.label("Base Frequency");
                 ui.vertical(|ui| {
-                    let frequency_text_box = ui.add(egui::TextEdit::singleline(&mut self.input_frequency).min_size(TEXT_EDIT));
+                    let frequency_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_frequency).min_size(TEXT_EDIT));
                     if frequency_text_box.changed() {
                         self.update_base_frequency_from_parameter();
                     }
                     if frequency_text_box.lost_focus() {
-                        if let Ok(value) = self.input_frequency.trim().parse::<f64>() {
+                        if let Ok(value) = self.user_input_frequency.trim().parse::<f64>() {
                             // Check if the value is out of bounds
                             if value < 2400.0 || value > 2483.5 {
                                 self.invalid_frequency_popup = true; // Trigger the popup
@@ -370,7 +370,7 @@ impl eframe::App for SerialApp {
             egui::Grid::new("channel").show(ui, |ui| {
                 ui.label("Channel Number");
                 ui.horizontal(|ui| {
-                    let frequency_text_box = ui.add(egui::DragValue::new(&mut self.input_channel_number)
+                    let frequency_text_box = ui.add(egui::DragValue::new(&mut self.user_input_channel_number)
                         .speed(1.0)
                         .clamp_existing_to_range(true)
                         .range(0..=255));
