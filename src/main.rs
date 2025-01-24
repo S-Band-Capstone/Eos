@@ -51,6 +51,7 @@ struct SerialApp {
     register_address:RegisterAddress,
     user_input_frequency: String,
     user_input_channel_number: u8,
+    user_input_mod_scheme: String,
     invalid_frequency_popup: bool,
 }
 
@@ -279,6 +280,7 @@ impl SerialApp {
             },
             user_input_frequency: "2464.0".to_string(),
             user_input_channel_number: 0,
+            user_input_mod_scheme: "2-FSK".to_string(),
             invalid_frequency_popup: false,
         }
     }
@@ -300,8 +302,7 @@ impl SerialApp {
     }
 
     fn update_base_frequency_from_parameter(&mut self) {
-        let intermediate_input_frequency = f64::floor(self.user_input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR); 
-        let intermediate_input_frequency_u64: u64 = intermediate_input_frequency as u64;
+        let intermediate_input_frequency_u64 = f64::floor(self.user_input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR) as u64; 
         self.register_value.freq0 = (intermediate_input_frequency_u64 & 0xFF) as u8;
         self.register_value.freq1 = ((intermediate_input_frequency_u64 >> 8) & 0xFF) as u8;
         self.register_value.freq2 = ((intermediate_input_frequency_u64 >> 16) & 0xFF) as u8;
@@ -310,6 +311,17 @@ impl SerialApp {
 
     fn update_channel_number_from_parameter(&mut self) {
         self.register_value.channr = self.user_input_channel_number
+    }
+
+    fn update_modulation_scheme_from_parameter(&mut self) {
+        self.register_value.mdmcfg2 &= 0x8F;
+        let value = self.user_input_mod_scheme.as_str();
+        match value {
+            "2-FSK" => self.register_value.mdmcfg2 |= 0x80,
+            "GFSK" => self.register_value.mdmcfg2 |= 0x10,
+            "MSK" => self.register_value.mdmcfg2 |= 0x70,
+            _ => self.register_value.mdmcfg2 = self.register_value.mdmcfg2,
+        }
     }
 
     fn get_concatenated_freq(&self) -> String {
@@ -370,14 +382,28 @@ impl eframe::App for SerialApp {
             egui::Grid::new("channel").show(ui, |ui| {
                 ui.label("Channel Number");
                 ui.horizontal(|ui| {
-                    let frequency_text_box = ui.add(egui::DragValue::new(&mut self.user_input_channel_number)
+                    let channel_number_box = ui.add(egui::DragValue::new(&mut self.user_input_channel_number)
                         .speed(1.0)
                         .clamp_existing_to_range(true)
                         .range(0..=255));
-                    if frequency_text_box.changed() {
+                    if channel_number_box.changed() {
                         self.update_channel_number_from_parameter();
                     }
                     ui.label(self.register_value.channr.to_string());
+                });
+            });
+
+            egui::Grid::new("modulation").show(ui, |ui| {
+                ui.label("Modulation Scheme");
+                ui.horizontal(|ui| {
+                    egui::ComboBox::from_label("")
+                        .selected_text(&self.user_input_mod_scheme)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.user_input_mod_scheme, "2-FSK".to_string(), "2-FSK");
+                            ui.selectable_value(&mut self.user_input_mod_scheme, "GFSK".to_string(), "GFSK");
+                            ui.selectable_value(&mut self.user_input_mod_scheme, "MSK".to_string(), "MSK")
+                    });
+                    self.update_modulation_scheme_from_parameter();
                 });
             });
 
