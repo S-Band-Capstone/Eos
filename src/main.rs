@@ -53,6 +53,7 @@ struct SerialApp {
     user_input_channel_number: u8,
     user_input_mod_scheme: String,
     is_whitened: bool,
+    manchester_enabled: bool,
     invalid_frequency_popup: bool,
 }
 
@@ -283,6 +284,7 @@ impl SerialApp {
             user_input_channel_number: 0,
             user_input_mod_scheme: "2-FSK".to_string(),
             is_whitened: true,
+            manchester_enabled: false,
             invalid_frequency_popup: false,
         }
     }
@@ -319,16 +321,19 @@ impl SerialApp {
         self.register_value.mdmcfg2 &= 0x8F;
         let value = self.user_input_mod_scheme.as_str();
         match value {
-            "2-FSK" => self.register_value.mdmcfg2 |= 0x80,
+            "2-FSK" => self.register_value.mdmcfg2 |= 0x00,
             "GFSK" => self.register_value.mdmcfg2 |= 0x10,
             "MSK" => self.register_value.mdmcfg2 |= 0x70,
             _ => self.register_value.mdmcfg2 = self.register_value.mdmcfg2,
         }
     }
 
-    
     fn update_data_whitening_from_parameters(&mut self) {
         if self.is_whitened {self.register_value.pktctrl0 |= 0x40} else {self.register_value.pktctrl0 &= 0xBF};
+    }
+    
+    fn update_manchester_from_parameters(&mut self) {
+        if self.manchester_enabled {self.register_value.mdmcfg2 |= 0x08} else {self.register_value.mdmcfg2 &= 0xF7};
     }
 
     fn get_concatenated_freq(&self) -> String {
@@ -421,6 +426,15 @@ impl eframe::App for SerialApp {
                     }
                 });
                 ui.label(self.register_value.pktctrl0.to_string());
+            });
+            egui::Grid::new("enable").show(ui, |ui| {
+                ui.label("Manchester Enable");
+                ui.horizontal(|ui| {
+                    if ui.checkbox(&mut self.manchester_enabled, "Manchester Enable").clicked() {
+                        self.update_manchester_from_parameters();
+                    }
+                });
+                ui.label(self.register_value.mdmcfg2.to_string());
             });
 
             if ui.button("Write Register").clicked() {
