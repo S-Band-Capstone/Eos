@@ -54,6 +54,7 @@ struct SerialApp {
     user_input_mod_scheme: String,
     is_whitened: bool,
     manchester_enabled: bool,
+    user_input_tx_power: i8,
     invalid_frequency_popup: bool,
 }
 
@@ -285,6 +286,7 @@ impl SerialApp {
             user_input_mod_scheme: "2-FSK".to_string(),
             is_whitened: true,
             manchester_enabled: false,
+            user_input_tx_power: -55,
             invalid_frequency_popup: false,
         }
     }
@@ -315,6 +317,32 @@ impl SerialApp {
 
     fn update_channel_number_from_parameter(&mut self) {
         self.register_value.channr = self.user_input_channel_number
+    }
+
+    fn update_tx_power_from_parameter(&mut self) {
+        self.register_value.pa_table0 = 0x00;
+        let value = self.user_input_tx_power;
+        match value {
+            1 => self.register_value.pa_table0 = 0xFF,
+            0 => self.register_value.pa_table0 = 0xFE,
+            -2 => self.register_value.pa_table0 = 0xBF,
+            -4 => self.register_value.pa_table0 = 0xAA,
+            -6 => self.register_value.pa_table0 = 0x7F,
+            -8 => self.register_value.pa_table0 = 0x99,
+            -10 => self.register_value.pa_table0 = 0xCB,
+            -12 => self.register_value.pa_table0 = 0x95,
+            -14 => self.register_value.pa_table0 = 0x59,
+            -16 => self.register_value.pa_table0 = 0x87,
+            -18 => self.register_value.pa_table0 = 0xC8,
+            -20 => self.register_value.pa_table0 = 0xC1,
+            -22 => self.register_value.pa_table0 = 0x83,
+            -24 => self.register_value.pa_table0 = 0x53,
+            -26 => self.register_value.pa_table0 = 0x54,
+            -28 => self.register_value.pa_table0 = 0x41,
+            -30 => self.register_value.pa_table0 = 0x44,
+            -55 => self.register_value.pa_table0 = 0x00,
+            _ => self.register_value.pa_table0 = self.register_value.pa_table0,
+        }
     }
 
     fn update_modulation_scheme_from_parameter(&mut self) {
@@ -435,6 +463,36 @@ impl eframe::App for SerialApp {
                     }
                 });
                 ui.label(self.register_value.mdmcfg2.to_string());
+            });
+
+            egui::Grid::new("power").show(ui, |ui| {
+                ui.label("TX Power");
+                ui.horizontal(|ui| {
+                    egui::ComboBox::from_label("TX Power")
+                        .selected_text(&self.user_input_tx_power.to_string())
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.user_input_tx_power, 1, "1");
+                            ui.selectable_value(&mut self.user_input_tx_power, 0, "0");
+                            ui.selectable_value(&mut self.user_input_tx_power, -2, "-2");
+                            ui.selectable_value(&mut self.user_input_tx_power, -4, "-4");
+                            ui.selectable_value(&mut self.user_input_tx_power, -6, "-6");
+                            ui.selectable_value(&mut self.user_input_tx_power, -8, "-8");
+                            ui.selectable_value(&mut self.user_input_tx_power, -10, "-10");
+                            ui.selectable_value(&mut self.user_input_tx_power, -12, "-12");
+                            ui.selectable_value(&mut self.user_input_tx_power, -14, "-14");
+                            ui.selectable_value(&mut self.user_input_tx_power, -16, "-16");
+                            ui.selectable_value(&mut self.user_input_tx_power, -18, "-18");
+                            ui.selectable_value(&mut self.user_input_tx_power, -20, "-20");
+                            ui.selectable_value(&mut self.user_input_tx_power, -22, "-22");
+                            ui.selectable_value(&mut self.user_input_tx_power, -24, "-24");
+                            ui.selectable_value(&mut self.user_input_tx_power, -26, "-26");
+                            ui.selectable_value(&mut self.user_input_tx_power, -28, "-28");
+                            ui.selectable_value(&mut self.user_input_tx_power, -30, "-30");
+                            ui.selectable_value(&mut self.user_input_tx_power, -55, "-55");
+                    });
+                    self.update_tx_power_from_parameter();
+                    ui.label(self.register_value.pa_table0.to_string());
+                });
             });
 
             if ui.button("Write Register").clicked() {
