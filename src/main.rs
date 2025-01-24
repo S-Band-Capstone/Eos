@@ -52,6 +52,7 @@ struct SerialApp {
     user_input_frequency: String,
     user_input_channel_number: u8,
     user_input_mod_scheme: String,
+    is_whitened: bool,
     invalid_frequency_popup: bool,
 }
 
@@ -281,6 +282,7 @@ impl SerialApp {
             user_input_frequency: "2464.0".to_string(),
             user_input_channel_number: 0,
             user_input_mod_scheme: "2-FSK".to_string(),
+            is_whitened: true,
             invalid_frequency_popup: false,
         }
     }
@@ -322,6 +324,11 @@ impl SerialApp {
             "MSK" => self.register_value.mdmcfg2 |= 0x70,
             _ => self.register_value.mdmcfg2 = self.register_value.mdmcfg2,
         }
+    }
+
+    
+    fn update_data_whitening_from_parameters(&mut self) {
+        if self.is_whitened {self.register_value.pktctrl0 |= 0x40} else {self.register_value.pktctrl0 &= 0xBF};
     }
 
     fn get_concatenated_freq(&self) -> String {
@@ -405,6 +412,15 @@ impl eframe::App for SerialApp {
                     });
                     self.update_modulation_scheme_from_parameter();
                 });
+            });
+            egui::Grid::new("whitening").show(ui, |ui| {
+                ui.label("Data Whitening");
+                ui.horizontal(|ui| {
+                    if ui.checkbox(&mut self.is_whitened, "Data Whitening").clicked() {
+                        self.update_data_whitening_from_parameters();
+                    }
+                });
+                ui.label(self.register_value.pktctrl0.to_string());
             });
 
             if ui.button("Write Register").clicked() {
