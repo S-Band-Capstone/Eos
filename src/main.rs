@@ -12,6 +12,9 @@ use std::time::Duration;
 const FREQUENCY_FACTOR: f64 = (2_u32.pow(16)as f64) / 26.0;
 const BASE_FREQUENCY_MIN: f64 = 2400.0;
 const BASE_FREQUENCY_MAX: f64 = 2843.5;
+const DEVIATION_MIN: f64 = 1.6;
+const DEVATION_MAX: f64 = 381.0;
+const DEVIATION_FACTOR: f64 = 26000.0 / 2u32.pow(17)as f64;
 
 // Commands
 #[repr(u8)]
@@ -55,7 +58,10 @@ struct SerialApp {
     is_whitened: bool,
     manchester_enabled: bool,
     user_input_tx_power: i8,
+    user_input_phase_transition_time: u8,
+    user_input_deviation: String,
     invalid_frequency_popup: bool,
+    invalid_deviation_popup: bool,
 }
 
 const TEXT_EDIT: Vec2 = Vec2 {
@@ -287,7 +293,10 @@ impl SerialApp {
             is_whitened: true,
             manchester_enabled: false,
             user_input_tx_power: -55,
+            user_input_phase_transition_time: 0,
+            user_input_deviation: "47.7".to_string(),
             invalid_frequency_popup: false,
+            invalid_deviation_popup: false,
         }
     }
 
@@ -312,7 +321,12 @@ impl SerialApp {
         self.register_value.freq0 = (intermediate_input_frequency_u64 & 0xFF) as u8;
         self.register_value.freq1 = ((intermediate_input_frequency_u64 >> 8) & 0xFF) as u8;
         self.register_value.freq2 = ((intermediate_input_frequency_u64 >> 16) & 0xFF) as u8;
-        u64::from_str_radix(format!("{}{}{}", format!("{:08b}", self.register_value.freq2).to_string(), format!("{:08b}", self.register_value.freq1).to_string(), format!("{:08b}", self.register_value.freq0)).as_str(), 2).expect("Invalid binary string").to_string();
+        u64::from_str_radix(format!("{}{}{}", 
+            format!("{:08b}", self.register_value.freq2).to_string(), 
+            format!("{:08b}", self.register_value.freq1).to_string(), 
+            format!("{:08b}", self.register_value.freq0))
+            .as_str(), 2).expect("Invalid binary string")
+            .to_string();
     }
 
     fn update_channel_number_from_parameter(&mut self) {
@@ -321,8 +335,7 @@ impl SerialApp {
 
     fn update_tx_power_from_parameter(&mut self) {
         self.register_value.pa_table0 = 0x00;
-        let value = self.user_input_tx_power;
-        match value {
+        match self.user_input_tx_power {
             1 => self.register_value.pa_table0 = 0xFF,
             0 => self.register_value.pa_table0 = 0xFE,
             -2 => self.register_value.pa_table0 = 0xBF,
@@ -356,18 +369,53 @@ impl SerialApp {
         }
     }
 
-    fn update_data_whitening_from_parameters(&mut self) {
+    fn update_data_whitening_from_parameter(&mut self) {
         if self.is_whitened {self.register_value.pktctrl0 |= 0x40} else {self.register_value.pktctrl0 &= 0xBF};
     }
     
-    fn update_manchester_from_parameters(&mut self) {
+    fn update_manchester_from_parameter(&mut self) {
         if self.manchester_enabled {self.register_value.mdmcfg2 |= 0x08} else {self.register_value.mdmcfg2 &= 0xF7};
     }
 
-    fn get_concatenated_freq(&self) -> String {
+    fn update_phase_transition_time_from_parameter(&mut self) {
+        match self.user_input_phase_transition_time {
+            0 => self.register_value.deviatn |= 0x00,
+            1 => self.register_value.deviatn |= 0x01,
+            2 => self.register_value.deviatn |= 0x02,
+            3 => self.register_value.deviatn |= 0x03,
+            4 => self.register_value.deviatn |= 0x04,
+            5 => self.register_value.deviatn |= 0x05,
+            6 => self.register_value.deviatn |= 0x06,
+            7 => self.register_value.deviatn |= 0x07,
+            _ => self.register_value.deviatn = self.register_value.deviatn,
+        }
+    }
+
+    fn update_deviation_from_parameter(&mut self) {
+        let intermediate_deviation_u64 = f64::floor(self.user_input_deviation.parse::<f64>().unwrap() / DEVIATION_FACTOR) as u64;
+        let deviation_e = (intermediate_deviation_u64 / 8).checked_ilog2().unwrap() as u8;
+        let deviation_m = ((intermediate_deviation_u64 / 2u64.pow(deviation_e as u32)) % 8) as u8;
+        self.register_value.deviatn = deviation_e << 4 | deviation_m;
+    }
+
+    // fn update_base_frequency_from_parameter(&mut self) {
+    //     let intermediate_input_frequency_u64 = f64::floor(self.user_input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR) as u64; 
+    //     self.register_value.freq0 = (intermediate_input_frequency_u64 & 0xFF) as u8;
+    //     self.register_value.freq1 = ((intermediate_input_frequency_u64 >> 8) & 0xFF) as u8;
+    //     self.register_value.freq2 = ((intermediate_input_frequency_u64 >> 16) & 0xFF) as u8;
+    //     u64::from_str_radix(format!("{}{}{}", format!("{:08b}", self.register_value.freq2).to_string(), format!("{:08b}", self.register_value.freq1).to_string(), format!("{:08b}", self.register_value.freq0)).as_str(), 2).expect("Invalid binary string").to_string();
+    // }
+
+    fn print_concatenated_freq(&self) -> String {
         let intermediate_decimal_frequency = ((self.register_value.freq2 as u32) << 16) | ((self.register_value.freq1 as u32) << 8) | self.register_value.freq0 as u32;
-        let result = intermediate_decimal_frequency as f64 / FREQUENCY_FACTOR;
-        format!("{}", result)
+        format!("{}", (intermediate_decimal_frequency as f64 / FREQUENCY_FACTOR))
+    }
+
+    fn print_deviation(&self) -> String {
+        let register_deviatn_m = self.register_value.deviatn & 0x07;
+        let register_deviatn_e = (self.register_value.deviatn & 0x70) >> 4;
+        let intermediate_decimal_deviation = DEVIATION_FACTOR * ((8 + register_deviatn_m) as u64 * 2u64.pow(register_deviatn_e as u32)) as f64;
+        intermediate_decimal_deviation.to_string()
     }
 }
 
@@ -384,14 +432,13 @@ impl eframe::App for SerialApp {
                 ui.label("Base Frequency");
                 ui.vertical(|ui| {
                     let frequency_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_frequency).min_size(TEXT_EDIT));
-                    if frequency_text_box.changed() {
-                        self.update_base_frequency_from_parameter();
-                    }
                     if frequency_text_box.lost_focus() {
                         if let Ok(value) = self.user_input_frequency.trim().parse::<f64>() {
                             // Check if the value is out of bounds
-                            if value < 2400.0 || value > 2483.5 {
+                            if value < BASE_FREQUENCY_MIN || value > BASE_FREQUENCY_MAX {
                                 self.invalid_frequency_popup = true; // Trigger the popup
+                            } else {
+                                self.update_base_frequency_from_parameter();
                             }
                         } else {
                             // Show popup for invalid input
@@ -399,18 +446,18 @@ impl eframe::App for SerialApp {
                         }
                     }
                     if self.invalid_frequency_popup {
-                        egui::Window::new("Invalid Input")
+                        egui::Window::new("Invalid Frequency Input")
                             .collapsible(false)
                             .resizable(false)
                             .show(ctx, |ui| {
-                                ui.label("The base frequency must be between 2400 and 2483.5!");
+                                ui.label(format!("The base frequency must be between {:?} and {:?}!", BASE_FREQUENCY_MIN, BASE_FREQUENCY_MAX));
                                 if ui.button("OK").clicked() {
                                     self.invalid_frequency_popup = false; // Close the popup
                                 }
                             });
                     }
                     ui.add(
-                        egui::TextEdit::singleline(&mut self.get_concatenated_freq()).clip_text(true).desired_width(68.0)
+                        egui::TextEdit::singleline(&mut self.print_concatenated_freq()).clip_text(true).desired_width(68.0)
                     );
                 });
                 ui.label("MHz");
@@ -450,7 +497,7 @@ impl eframe::App for SerialApp {
                 ui.label("Data Whitening");
                 ui.horizontal(|ui| {
                     if ui.checkbox(&mut self.is_whitened, "Data Whitening").clicked() {
-                        self.update_data_whitening_from_parameters();
+                        self.update_data_whitening_from_parameter();
                     }
                 });
                 ui.label(self.register_value.pktctrl0.to_string());
@@ -459,7 +506,7 @@ impl eframe::App for SerialApp {
                 ui.label("Manchester Enable");
                 ui.horizontal(|ui| {
                     if ui.checkbox(&mut self.manchester_enabled, "Manchester Enable").clicked() {
-                        self.update_manchester_from_parameters();
+                        self.update_manchester_from_parameter();
                     }
                 });
                 ui.label(self.register_value.mdmcfg2.to_string());
@@ -494,6 +541,66 @@ impl eframe::App for SerialApp {
                     ui.label(self.register_value.pa_table0.to_string());
                 });
             });
+
+            if self.register_value.mdmcfg2 & 0x70 == 0x70 {
+                egui::Grid::new("phase_transition").show(ui, |ui| {
+                    ui.label("Phase Transition Time");
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_label("Phase Transition Time")
+                            .selected_text(&self.user_input_phase_transition_time.to_string())
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 0, "0");
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 1, "1");
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 2, "2");
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 3, "3");
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 4, "4");
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 5, "5");
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 6, "6");
+                                ui.selectable_value(&mut self.user_input_phase_transition_time, 7, "7");
+                        });
+                        self.update_phase_transition_time_from_parameter();
+                    });
+                });
+            } else {
+                egui::Grid::new("deviation").show(ui, |ui| {
+                    ui.label("Deviation");
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            let deviation_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_deviation).min_size(TEXT_EDIT));
+                            if deviation_text_box.lost_focus() {
+                                if let Ok(value) = self.user_input_deviation.trim().parse::<f64>() {
+                                    // Check if the value is out of bounds
+                                    if value < DEVIATION_MIN || value > DEVATION_MAX {
+                                        self.invalid_deviation_popup = true; // Trigger the popup
+                                    } else {
+                                        self.update_deviation_from_parameter();
+                                    }
+                                } else {
+                                    // Show popup for invalid input
+                                    self.invalid_deviation_popup = true;
+                                }
+                            }
+                            if self.invalid_deviation_popup {
+                                egui::Window::new("Invalid Deviation Input")
+                                    .collapsible(false)
+                                    .resizable(false)
+                                    .show(ctx, |ui| {
+                                        ui.label(format!("The deviation must be between {:?} and {:?}!", DEVIATION_MIN, DEVATION_MAX));
+                                        if ui.button("OK").clicked() {
+                                            self.invalid_deviation_popup = false; // Close the popup
+                                        }
+                                    });
+                            }
+                        });
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.print_deviation()).clip_text(true).desired_width(68.0)
+                        ); 
+                    });
+                    ui.label(self.register_value.deviatn.to_string());
+                    ui.label(format!("register_deviatn_m = {:08b} ---> :{:?}", self.register_value.deviatn, self.register_value.deviatn));
+                });
+            }
+            
 
             if ui.button("Write Register").clicked() {
                 let write_register_frame = WriteRegisterFrame {
