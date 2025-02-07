@@ -15,6 +15,9 @@ const BASE_FREQUENCY_MAX: f64 = 2843.5;
 const DEVIATION_MIN: f64 = 1.6;
 const DEVATION_MAX: f64 = 381.0;
 const DEVIATION_FACTOR: f64 = 26000.0 / 2u32.pow(17)as f64;
+const DATA_RATE_MIN: f64 = 0.025;
+const DATA_RATE_MAX: f64 = 1622.0;
+const DATA_RATE_FACTOR: f64 = 26000.0 / 2u32.pow(28)as f64;
 
 // Commands
 #[repr(u8)]
@@ -60,8 +63,10 @@ struct SerialApp {
     user_input_tx_power: i8,
     user_input_phase_transition_time: u8,
     user_input_deviation: String,
+    user_input_dr: String,
     invalid_frequency_popup: bool,
     invalid_deviation_popup: bool,
+    invalid_dr_popup: bool,
 }
 
 const TEXT_EDIT: Vec2 = Vec2 {
@@ -295,8 +300,10 @@ impl SerialApp {
             user_input_tx_power: -55,
             user_input_phase_transition_time: 0,
             user_input_deviation: "47.7".to_string(),
+            user_input_dr: "115.051".to_string(),
             invalid_frequency_popup: false,
             invalid_deviation_popup: false,
+            invalid_dr_popup: false,
         }
     }
 
@@ -398,6 +405,14 @@ impl SerialApp {
         self.register_value.deviatn = deviation_e << 4 | deviation_m;
     }
 
+    fn update_dr_from_parameter(&mut self) {
+        let intermediate_dr_u64 = f64::floor(self.user_input_dr.parse::<f64>().unwrap() / DATA_RATE_FACTOR) as u64;
+        let dr_e = (intermediate_dr_u64 / 256).checked_ilog2().unwrap() as u8;
+        let dr_m = ((intermediate_dr_u64 / 2u64.pow(dr_e as u32)) % 256) as u8;
+        self.register_value.mdmcfg4 |= dr_e;
+        self.register_value.mdmcfg3 = dr_m;
+    }
+
     // fn update_base_frequency_from_parameter(&mut self) {
     //     let intermediate_input_frequency_u64 = f64::floor(self.user_input_frequency.parse::<f64>().unwrap() * FREQUENCY_FACTOR) as u64; 
     //     self.register_value.freq0 = (intermediate_input_frequency_u64 & 0xFF) as u8;
@@ -417,6 +432,13 @@ impl SerialApp {
         let intermediate_decimal_deviation = DEVIATION_FACTOR * ((8 + register_deviatn_m) as u64 * 2u64.pow(register_deviatn_e as u32)) as f64;
         intermediate_decimal_deviation.to_string()
     }
+
+    fn print_dr(&self) -> String {
+        let register_dr_e = self.register_value.mdmcfg4 & 0x0F;
+        let register_dr_m = self.register_value.mdmcfg3;
+        let intermediate_decimal_dr = DATA_RATE_FACTOR * ((256 + register_dr_m as u64) * 2u64.pow(register_dr_e as u32)) as f64;
+        intermediate_decimal_dr.to_string()
+    }
 }
 
 // implementation of the UI for SerialApp
@@ -428,45 +450,44 @@ impl eframe::App for SerialApp {
         }
 
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
-            egui::Grid::new("freq").show(ui, |ui| {
-                ui.label("Base Frequency");
-                ui.vertical(|ui| {
-                    let frequency_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_frequency).min_size(TEXT_EDIT));
-                    if frequency_text_box.lost_focus() {
-                        if let Ok(value) = self.user_input_frequency.trim().parse::<f64>() {
-                            // Check if the value is out of bounds
-                            if value < BASE_FREQUENCY_MIN || value > BASE_FREQUENCY_MAX {
-                                self.invalid_frequency_popup = true; // Trigger the popup
-                            } else {
-                                self.update_base_frequency_from_parameter();
-                            }
-                        } else {
-                            // Show popup for invalid input
-                            self.invalid_frequency_popup = true;
-                        }
-                    }
-                    if self.invalid_frequency_popup {
-                        egui::Window::new("Invalid Frequency Input")
-                            .collapsible(false)
-                            .resizable(false)
-                            .show(ctx, |ui| {
-                                ui.label(format!("The base frequency must be between {:?} and {:?}!", BASE_FREQUENCY_MIN, BASE_FREQUENCY_MAX));
-                                if ui.button("OK").clicked() {
-                                    self.invalid_frequency_popup = false; // Close the popup
+            egui::Grid::new("left_panels")
+                .min_col_width(150.0)
+                .striped(true)
+                .show(ui, |ui| {
+                    ui.label("Base Frequency");
+                    ui.vertical(|ui| {
+                        let frequency_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_frequency).desired_width(68.0));
+                        if frequency_text_box.lost_focus() {
+                            if let Ok(value) = self.user_input_frequency.trim().parse::<f64>() {
+                                // Check if the value is out of bounds
+                                if value < BASE_FREQUENCY_MIN || value > BASE_FREQUENCY_MAX {
+                                    self.invalid_frequency_popup = true; // Trigger the popup
+                                } else {
+                                    self.update_base_frequency_from_parameter();
                                 }
-                            });
-                    }
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.print_concatenated_freq()).clip_text(true).desired_width(68.0)
-                    );
-                });
-                ui.label("MHz");
-            });
-            ui.horizontal(|ui| {
+                            } else {
+                                // Show popup for invalid input
+                                self.invalid_frequency_popup = true;
+                            }
+                        }
+                        if self.invalid_frequency_popup {
+                            egui::Window::new("Invalid Frequency Input")
+                                .collapsible(false)
+                                .resizable(false)
+                                .show(ctx, |ui| {
+                                    ui.label(format!("The base frequency must be between {:?} and {:?}!", BASE_FREQUENCY_MIN, BASE_FREQUENCY_MAX));
+                                    if ui.button("OK").clicked() {
+                                        self.invalid_frequency_popup = false; // Close the popup
+                                    }
+                                });
+                        }
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.print_concatenated_freq()).clip_text(true).desired_width(68.0)
+                        );
+                    });
+                    ui.label("MHz");
+                ui.end_row();
 
-            });
-
-            egui::Grid::new("channel").show(ui, |ui| {
                 ui.label("Channel Number");
                 ui.horizontal(|ui| {
                     let channel_number_box = ui.add(egui::DragValue::new(&mut self.user_input_channel_number)
@@ -476,11 +497,10 @@ impl eframe::App for SerialApp {
                     if channel_number_box.changed() {
                         self.update_channel_number_from_parameter();
                     }
-                    ui.label(self.register_value.channr.to_string());
                 });
-            });
+                ui.label(self.register_value.channr.to_string());
+                ui.end_row();
 
-            egui::Grid::new("modulation").show(ui, |ui| {
                 ui.label("Modulation Scheme");
                 ui.horizontal(|ui| {
                     egui::ComboBox::from_label("")
@@ -492,8 +512,8 @@ impl eframe::App for SerialApp {
                     });
                     self.update_modulation_scheme_from_parameter();
                 });
-            });
-            egui::Grid::new("whitening").show(ui, |ui| {
+                ui.end_row();
+
                 ui.label("Data Whitening");
                 ui.horizontal(|ui| {
                     if ui.checkbox(&mut self.is_whitened, "Data Whitening").clicked() {
@@ -501,8 +521,8 @@ impl eframe::App for SerialApp {
                     }
                 });
                 ui.label(self.register_value.pktctrl0.to_string());
-            });
-            egui::Grid::new("enable").show(ui, |ui| {
+                ui.end_row();
+
                 ui.label("Manchester Enable");
                 ui.horizontal(|ui| {
                     if ui.checkbox(&mut self.manchester_enabled, "Manchester Enable").clicked() {
@@ -510,12 +530,11 @@ impl eframe::App for SerialApp {
                     }
                 });
                 ui.label(self.register_value.mdmcfg2.to_string());
-            });
-
-            egui::Grid::new("power").show(ui, |ui| {
+                ui.end_row();
+                
                 ui.label("TX Power");
                 ui.horizontal(|ui| {
-                    egui::ComboBox::from_label("TX Power")
+                    egui::ComboBox::from_label(" ")
                         .selected_text(&self.user_input_tx_power.to_string())
                         .show_ui(ui, |ui| {
                             ui.selectable_value(&mut self.user_input_tx_power, 1, "1");
@@ -538,12 +557,12 @@ impl eframe::App for SerialApp {
                             ui.selectable_value(&mut self.user_input_tx_power, -55, "-55");
                     });
                     self.update_tx_power_from_parameter();
-                    ui.label(self.register_value.pa_table0.to_string());
+                    
                 });
-            });
+                ui.label(self.register_value.pa_table0.to_string());
+                ui.end_row();
 
-            if self.register_value.mdmcfg2 & 0x70 == 0x70 {
-                egui::Grid::new("phase_transition").show(ui, |ui| {
+                if self.register_value.mdmcfg2 & 0x70 == 0x70 {
                     ui.label("Phase Transition Time");
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_label("Phase Transition Time")
@@ -560,13 +579,11 @@ impl eframe::App for SerialApp {
                         });
                         self.update_phase_transition_time_from_parameter();
                     });
-                });
-            } else {
-                egui::Grid::new("deviation").show(ui, |ui| {
+                } else {
                     ui.label("Deviation");
                     ui.vertical(|ui| {
                         ui.horizontal(|ui| {
-                            let deviation_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_deviation).min_size(TEXT_EDIT));
+                            let deviation_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_deviation).desired_width(68.0));
                             if deviation_text_box.lost_focus() {
                                 if let Ok(value) = self.user_input_deviation.trim().parse::<f64>() {
                                     // Check if the value is out of bounds
@@ -597,10 +614,52 @@ impl eframe::App for SerialApp {
                         ); 
                     });
                     ui.label(self.register_value.deviatn.to_string());
-                    ui.label(format!("register_deviatn_m = {:08b} ---> :{:?}", self.register_value.deviatn, self.register_value.deviatn));
+                    // ui.label(format!("register_deviatn_m = {:08b} ---> :{:?}", self.register_value.deviatn, self.register_value.deviatn));
+                }
+                ui.end_row();
+
+                ui.label("Data Rate");
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        let dr_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_dr).desired_width(68.0));
+                        if dr_text_box.lost_focus() {
+                            if let Ok(value) = self.user_input_dr.trim().parse::<f64>() {
+                                // Check if the value is out of bounds
+                                if value < DATA_RATE_MIN || value > DATA_RATE_MAX {
+                                    self.invalid_dr_popup = true; // Trigger the popup
+                                } else {
+                                    self.update_dr_from_parameter();
+                                }
+                            } else {
+                                // Show popup for invalid input
+                                self.invalid_dr_popup = true;
+                            }
+                        }
+                        if self.invalid_deviation_popup {
+                            egui::Window::new("Invalid Data Rate Input")
+                                .collapsible(false)
+                                .resizable(false)
+                                .show(ctx, |ui: &mut egui::Ui| {
+                                    ui.label(format!("The data rate must be between {:?} and {:?}!", DATA_RATE_MIN, DATA_RATE_MAX));
+                                    if ui.button("OK").clicked() {
+                                        self.invalid_dr_popup = false; // Close the popup
+                                    }
+                                });
+                        }
+                    });
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.print_dr()).clip_text(true).desired_width(68.0)
+                    ); 
                 });
-            }
-            
+                ui.label("kBaud");
+                // ui.label(format!("register_mdmcfg4 = {:08b}", self.register_value.mdmcfg4));
+                // ui.label(format!("register_dr_m = {:08b}", self.register_value.mdmcfg3));
+                ui.end_row();
+                
+                ui.horizontal(|ui| {
+    
+                });  
+            });
 
             if ui.button("Write Register").clicked() {
                 let write_register_frame = WriteRegisterFrame {
@@ -630,7 +689,9 @@ impl eframe::App for SerialApp {
         });
 
         egui::SidePanel::right("right_panel").show(ctx, |ui| {
-
+            egui::Grid::new("right_panel")
+                .striped(true)
+                .show(ui, |ui| {});
         });
     }
 }
