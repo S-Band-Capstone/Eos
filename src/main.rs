@@ -72,11 +72,6 @@ struct SerialApp {
     is_hex: bool,
 }
 
-const TEXT_EDIT: Vec2 = Vec2 {
-    x: 68.0,
-    y: 0.0
-};
-
 // Implementation of the SerialApp struct further up, declares startup things, such as port selection & initial variable values
 impl SerialApp {
     fn new(cc: &eframe::CreationContext) -> Self {
