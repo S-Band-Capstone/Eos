@@ -583,10 +583,10 @@ impl eframe::App for SerialApp {
                     ui.horizontal(|ui| {
                         let dr_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_dr).desired_width(68.0));
                         if dr_text_box.lost_focus() {
-                            
+                            self.dr_input_is_out_of_bounds();
                         }
                         if self.invalid_deviation_popup {
-                            
+                            self.invalid_dr_popup(ctx);
                         }
                     });
                     ui.add(
