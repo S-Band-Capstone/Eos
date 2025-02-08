@@ -316,6 +316,7 @@ impl SerialApp {
     }
     
     fn update_dr_from_parameter(&mut self) {
+        self.register_value.mdmcfg4 &= 0xF0;
         let intermediate_dr_u64 = f64::floor(self.user_input_dr.parse::<f64>().unwrap() / DATA_RATE_FACTOR) as u64;
         let dr_e = (intermediate_dr_u64 / 256).checked_ilog2().unwrap() as u8;
         let dr_m = ((intermediate_dr_u64 / 2u64.pow(dr_e as u32)) % 256) as u8;
@@ -365,7 +366,7 @@ impl SerialApp {
         }
     }
 
-    fn invalid_frequency_popup(&mut self, ctx: &egui::Context) -> Option<InnerResponse<Option<()>>> {
+    fn invalid_frequency_popup(&mut self, ctx: &egui::Context) {
         egui::Window::new("Invalid Frequency Input")
             .collapsible(false)
             .resizable(false)
@@ -374,7 +375,7 @@ impl SerialApp {
                 if ui.button("OK").clicked() {
                     self.invalid_frequency_popup = false; // Close the popup
                 }
-        })
+        });
     }
 
     fn deviation_input_is_out_of_bounds(&mut self) {
@@ -392,7 +393,7 @@ impl SerialApp {
         }
     }
 
-    fn invalid_deviation_popup(&mut self, ctx: &egui::Context) -> Option<InnerResponse<Option<()>>> {
+    fn invalid_deviation_popup(&mut self, ctx: &egui::Context) {
         egui::Window::new("Invalid Deviation Input")
             .collapsible(false)
             .resizable(false)
@@ -401,7 +402,7 @@ impl SerialApp {
                 if ui.button("OK").clicked() {
                     self.invalid_deviation_popup = false; // Close the popup
                 }
-        })
+        });
     }
 
     fn dr_input_is_out_of_bounds(&mut self) {
@@ -411,6 +412,7 @@ impl SerialApp {
                 self.invalid_dr_popup = true; // Trigger the popup
             } else {
                 self.update_dr_from_parameter();
+                self.invalid_dr_popup = false;
             }
         } else {
             // Show popup for invalid input
@@ -451,6 +453,7 @@ impl eframe::App for SerialApp {
                         if frequency_text_box.lost_focus() {
                             self.frequency_input_is_out_of_bounds();
                             if self.invalid_frequency_popup {
+                                println!("YUUUUUUURRR");
                                 self.invalid_frequency_popup(ctx);
                             }
                         }
@@ -588,6 +591,8 @@ impl eframe::App for SerialApp {
                         egui::TextEdit::singleline(&mut self.print_dr()).clip_text(true).desired_width(68.0)
                     ); 
                 });
+                ui.label((self.register_value.mdmcfg4 & 0x0F).to_string());
+                ui.label(self.register_value.mdmcfg3.to_string());
                 ui.label("kBaud");
                 // ui.label(format!("register_mdmcfg4 = {:08b}", self.register_value.mdmcfg4));
                 // ui.label(format!("register_dr_m = {:08b}", self.register_value.mdmcfg3));
