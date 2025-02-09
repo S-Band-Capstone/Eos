@@ -1,6 +1,4 @@
-use eframe::egui::{Vec2, Window};
 use eframe::egui::{self};
-use crate::egui::InnerResponse;
 use serde::{Serialize, Deserialize};
 use std::error::Error;
 use tokio_serial::SerialPort;
@@ -363,10 +361,10 @@ impl SerialApp {
         } else {
             // Show popup for invalid input
             self.invalid_frequency_popup = true;
-        }
+        } 
     }
 
-    fn invalid_frequency_popup(&mut self, ctx: &egui::Context) {
+    fn show_invalid_frequency_popup(&mut self, ctx: &egui::Context) {
         egui::Window::new("Invalid Frequency Input")
             .collapsible(false)
             .resizable(false)
@@ -393,7 +391,7 @@ impl SerialApp {
         }
     }
 
-    fn invalid_deviation_popup(&mut self, ctx: &egui::Context) {
+    fn show_invalid_deviation_popup(&mut self, ctx: &egui::Context) {
         egui::Window::new("Invalid Deviation Input")
             .collapsible(false)
             .resizable(false)
@@ -420,7 +418,7 @@ impl SerialApp {
         }
     }
 
-    fn invalid_dr_popup(&mut self, ctx: &egui::Context) -> Option<InnerResponse<Option<()>>> {
+    fn show_invalid_dr_popup(&mut self, ctx: &egui::Context) {
         egui::Window::new("Invalid Data Rate Input")
             .collapsible(false)
             .resizable(false)
@@ -429,9 +427,8 @@ impl SerialApp {
                 if ui.button("OK").clicked() {
                     self.invalid_dr_popup = false; // Close the popup
                 }
-        })
+        });
     }
-    
 }
 
 // implementation of the UI for SerialApp
@@ -452,10 +449,9 @@ impl eframe::App for SerialApp {
                         let frequency_text_box = ui.add(egui::TextEdit::singleline(&mut self.user_input_frequency).desired_width(68.0));
                         if frequency_text_box.lost_focus() {
                             self.frequency_input_is_out_of_bounds();
-                            if self.invalid_frequency_popup {
-                                println!("YUUUUUUURRR");
-                                self.invalid_frequency_popup(ctx);
-                            }
+                        }
+                        if self.invalid_frequency_popup {
+                            self.show_invalid_frequency_popup(ctx);
                         }
                         ui.add(
                             egui::TextEdit::singleline(&mut self.print_concatenated_freq()).clip_text(true).desired_width(68.0)
@@ -564,7 +560,7 @@ impl eframe::App for SerialApp {
                                 self.deviation_input_is_out_of_bounds();
                             }
                             if self.invalid_deviation_popup {
-                                self.invalid_deviation_popup(ctx);
+                                self.show_invalid_deviation_popup(ctx);
                             }
                         });
                         ui.add(
@@ -583,8 +579,8 @@ impl eframe::App for SerialApp {
                         if dr_text_box.lost_focus() {
                             self.dr_input_is_out_of_bounds();
                         }
-                        if self.invalid_deviation_popup {
-                            self.invalid_dr_popup(ctx);
+                        if self.invalid_dr_popup {
+                            self.show_invalid_dr_popup(ctx);
                         }
                     });
                     ui.add(
